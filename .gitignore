@@ -1,5 +1,9 @@
 .venv
 venv
 __pycache__
-.idea
 *.pyc
+.idea
+*.pem
+.env
+Thumbs.db
+.DS_Store
