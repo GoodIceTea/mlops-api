@@ -1,53 +1,38 @@
-import io
-import torch
-from fastapi import FastAPI, File, UploadFile
-from torchvision import models, transforms
-from PIL import Image
-
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from scraper import JobScraper
 app = FastAPI(
-    title="MLOPS ResNet API",
-    description="A simple API for classifying images using ResNet",
-    version="1.0",
+    title="Intelligent Job Radar API",
+    description="A API for agregaating job offers from different sources.",
+    version="2.0.0",
 )
 
-print("Loading model...")
-try:
-    model = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
-    model.eval()
-    print("Model loaded.")
+scraper = JobScraper()
 
-except Exception as e:
-    print(f"Error loading model: {e}")
-    exit(1)
+class JobSearchRequest(BaseModel):
+    category: str
+    location: str
+    experience: str
 
-preprocess = transforms.Compose([
-    transforms.Resize(256),
-    transforms.CenterCrop(224),
-    transforms.ToTensor(),
-    transforms.Normalize(
-        mean=[0.485, 0.456, 0.406],
-        std=[0.229, 0.224, 0.225]
-    )
-])
+@app.post("/api/search")
+async def search_job_offers(request: JobSearchRequest):
+    print(f"Recieved request: {request.category} in {request.location} with experience {request.experience}")
 
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to the MLOPS ResNet API! Send an image to endpoint /predict"}
+    links = scraper.find_job_links(request.category, request.location, request.experience)
 
-@app.post("/predict")
-async def predict(file: UploadFile = File(...)):
-    try:
-        image_bytes = await file.read()
-        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        input_tensor = preprocess(image)
-        input_batch = input_tensor.unsqueeze(0)
+    if not links:
+        raise HTTPException(
+            status_code=404,
+            detail="No job offers found.")
 
-        with torch.no_grad():
-            output = model(input_batch)
-            _, predicted_idx = torch.max(output.data, 1)
-        return {
-            "filename": file.filename,
-            "predicted_class_id": predicted_idx.item()
-        }
-    except Exception as e:
-        return {"error": str(e)}
+    top_results = []
+    for link in links[:3]:
+        data = scraper.extract_job_data(link)
+        top_results.append(data)
+
+    return {
+        "status":"Success",
+        "total_offers_found":len(links),
+        "top_offers_analyzed":len(top_results),
+        "data": top_results
+    }
