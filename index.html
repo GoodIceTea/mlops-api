@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Radar - Twój osobisty asystent rynku pracy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans text-gray-800">
+
+    <div class="max-w-5xl mx-auto py-10 px-4">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold text-blue-600 mb-2">Radar Rynku Pracy</h1>
+            <p class="text-gray-500">Błyskawiczna analiza ustrukturyzowanych ofert</p>
+        </header>
+
+        <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+            <form id="searchForm" class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Technologia</label>
+                    <select id="category" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="python">Python</option>
+                        <option value="data">Data</option>
+                        <option value="java">Java</option>
+                        <option value="javascript">JavaScript</option>
+                    </select>
+                </div>
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Lokalizacja</label>
+                    <select id="location" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="lodz">Łódź</option>
+                        <option value="warszawa">Warszawa</option>
+                        <option value="krakow">Kraków</option>
+                        <option value="wroclaw">Wrocław</option>
+                    </select>
+                </div>
+                <div class="flex-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Doświadczenie</label>
+                    <select id="experience" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="junior">Junior</option>
+                        <option value="mid">Mid</option>
+                        <option value="senior">Senior</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button type="submit" id="submitBtn" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-md transition duration-200">
+                        Szukaj Ofert
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div id="loadingIndicator" class="hidden text-center my-8">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p class="mt-2 text-gray-500">Przeszukiwanie i analizowanie ofert...</p>
+        </div>
+
+        <div id="resultsContainer" class="hidden">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-700">Top Wyniki <span id="resultsCount" class="text-sm font-normal text-gray-500"></span></h2>
+            <div id="cardsWrapper" class="flex flex-col gap-4">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('searchForm').addEventListener('submit', async (e) => {
+            e.preventDefault(); // Zatrzymuje przeładowanie strony
+
+            // 1. Pobieranie wartości z formularza
+            const payload = {
+                category: document.getElementById('category').value,
+                location: document.getElementById('location').value,
+                experience: document.getElementById('experience').value
+            };
+
+            // 2. Zarządzanie widokiem (pokazujemy loading)
+            const submitBtn = document.getElementById('submitBtn');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const resultsContainer = document.getElementById('resultsContainer');
+            const cardsWrapper = document.getElementById('cardsWrapper');
+
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            loadingIndicator.classList.remove('hidden');
+            resultsContainer.classList.add('hidden');
+            cardsWrapper.innerHTML = ''; // Czyszczenie starych wyników
+
+            try {
+                // 3. Wysłanie zapytania do Twojego API FastAPI
+                const response = await fetch('http://127.0.0.1:8000/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Błąd serwera: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // 4. Wyświetlanie wyników
+                document.getElementById('resultsCount').innerText = `(Znaleziono ${data.total_offers_found} ofert całkowicie, przeanalizowano ${data.top_offers_analyzed})`;
+
+                data.data.forEach(offer => {
+                    const card = document.createElement('div');
+                    // Zmiana układu karty na poziomy wiersz (flex-row)
+                    card.className = "bg-white p-5 rounded-lg shadow-sm border border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4 transition hover:shadow-md";
+
+                    let stackHtml = "Brak danych";
+                    if (offer.tech_stack && offer.tech_stack !== "Not found") {
+                        const stackArray = offer.tech_stack.split(',');
+                        stackHtml = stackArray.map(tech =>
+                            `<span class="inline-block bg-blue-50 text-blue-700 border border-blue-200 text-xs px-2 py-1 rounded mr-1 mb-1 font-medium">${tech.trim()}</span>`
+                        ).join('');
+                    }
+
+                    // Skracamy brzydki link do samej nazwy ogłoszenia
+                    const offerName = offer.url.split('/').pop().split('-').slice(0, -1).join(' ').toUpperCase();
+
+                    card.innerHTML = `
+                        <div class="flex-1 w-full min-w-0">
+                            <p class="text-xs font-bold text-blue-600 mb-1 tracking-wider uppercase">
+                                <i class="fas fa-building mr-1"></i> ${offer.company}
+                            </p>
+
+                            <h3 class="text-xl font-bold text-gray-800 mb-3 truncate" title="${offer.title}">
+                                ${offer.title}
+                            </h3>
+
+                            <div class="flex flex-wrap items-center">
+                                <span class="text-sm font-semibold text-gray-500 mr-3">Stack:</span>
+                                ${stackHtml}
+                            </div>
+                        </div>
+
+                        <div class="mt-4 md:mt-0 flex-shrink-0">
+                            <a href="${offer.url}" target="_blank" class="block w-full md:w-auto bg-white hover:bg-gray-50 text-blue-600 font-semibold py-2 px-6 rounded border border-gray-300 transition duration-150 whitespace-nowrap text-center shadow-sm">
+                                Przejdź do oferty
+                            </a>
+                        </div>
+                    `;
+                    cardsWrapper.appendChild(card);
+                });
+
+                resultsContainer.classList.remove('hidden');
+
+            } catch (error) {
+                alert("Wystąpił problem z pobraniem danych. Upewnij się, że backend działa i terminal nie zgłasza błędów (np. 404).");
+                console.error(error);
+            } finally {
+                // 5. Sprzątanie widoku
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                loadingIndicator.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -43,15 +43,40 @@ class JobScraper:
         try:
             response = requests.get(url, headers=self.headers, timeout=10)
             response.raise_for_status()
-
             soup = BeautifulSoup(response.text, 'html.parser')
 
+            job_title = "No title"
+            company_name = "No company"
+
+            scripts = soup.find_all('script', type='application/ld+json')
+            for script in scripts:
+                try:
+                    data = json.loads(script.string)
+                    if isinstance(data, dict) and data.get("@type") == "JobPosting":
+                        job_title = data.get("title", "No title")
+                        org = data.get("hiringOrganization", {})
+                        company_name = org.get("name", "No company")
+                        break
+                except (json.JSONDecodeError, TypeError):
+                    continue
+
+            if job_title == "No title":
+                h1_tag = soup.find('h1')
+                job_title = h1_tag.get_text(strip=True) if h1_tag else "No title"
+
             tech_section = soup.find('ul', class_='mui-vdxqko')
-            tech_stack = tech_section.get_text(separator=',',strip=True) if tech_section else "Not found"
+            if tech_section:
+                raw_text = tech_section.get_text(separator=',', strip=True)
+                raw_list = [item.strip() for item in raw_text.split(',')]
+                tech_stack = ', '.join(raw_list[::2])
+            else:
+                tech_stack = "Not found"
 
             return{
                 "url":url,
-                "tech_stack":tech_stack,
+                "title": job_title,
+                "company": company_name,
+                "tech_stack":tech_stack
             }
 
         except Exception as e:
