@@ -2,6 +2,7 @@ import pypdf
 from sentence_transformers import SentenceTransformer, util
 import time
 import os
+import re
 
 class CV_Analyzer:
     def __init__(self):
@@ -47,26 +48,21 @@ class CV_Analyzer:
 
         return max(0.0, min(100.0, round(ux_score, 1)))
 
+    def get_missing_skills(self, cv_text: str, job_requirements: str) -> list[str]:
+        if not job_requirements or job_requirements == "Not found" or not cv_text:
+            return []
 
-#test
-if __name__ == "__main__":
-    analyzer = CV_Analyzer()
+        missing =[]
 
-    my_pdf_file = "Michal_Galezowski_ENG_CV.pdf"
-    print(f"\n Trying to read {my_pdf_file}...")
-    cv_content = analyzer.extract_text_from_pdf(my_pdf_file)
+        cv_lower = cv_text.lower()
+        required_skills = [skill.strip() for skill in job_requirements.split(',')]
 
-    if cv_content:
-        print(f"Success, extracted {len(cv_content.split())} words from PDF.")
-        print(f"First 100 words: {cv_content[:100]}")
+        for skill in required_skills:
+            clean_skill = skill.lower()
+            escaped = re.escape(clean_skill)
+            pattern = rf"(^|\W){escaped}($|\W)"
 
-        test_stack = "Python, PyTorch, Machine Learning, Data Analysis, SQL"
-        print(f"Test stack: {test_stack}")
+            if not re.search(pattern, cv_lower):
+                missing.append(skill)
 
-        start_time = time.time()
-        score = analyzer.calculate_match(cv_content, test_stack)
-        calc_time = time.time() - start_time
-
-        print(f"\nCV match score: {score}% (calculated in {calc_time:.4f} seconds)")
-    else:
-        print("Failed to extract text from PDF.")
+        return missing

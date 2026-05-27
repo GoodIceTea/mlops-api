@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, File, UploadFile, Form
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from cachetools import TTLCache
 import shutil
@@ -24,6 +25,10 @@ app.add_middleware(
 scraper = JobScraper()
 cv_analyzer = CV_Analyzer()
 search_cache = TTLCache(maxsize=100, ttl=300)
+
+@app.get("/")
+async def serve_frontend():
+    return FileResponse("index.html")
 
 @app.post("/api/search")
 async def search_and_match_jobs(
@@ -72,8 +77,10 @@ async def search_and_match_jobs(
         if cv_text:
             score = cv_analyzer.calculate_match(cv_text, offer_data["tech_stack"])
             offer_data["match_score"] = score
+            offer_data["missing_skills"] = cv_analyzer.get_missing_skills(cv_text, offer_data["tech_stack"])
         else:
             offer_data["match_score"] = 0.0
+            offer_data["missing_skills"] = []
 
         final_results.append(offer_data)
 

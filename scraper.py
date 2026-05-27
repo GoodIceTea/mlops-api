@@ -82,19 +82,3 @@ class JobScraper:
         except Exception as e:
             print(f"Error fetching job data {url}: {e}")
             return {"url": url, "tech_stack": "Error"}
-
-
-#test
-if __name__ == "__main__":
-    scraper = JobScraper()
-
-    print("Starting the scraper...")
-    found_links = scraper.find_job_links(category="data", location="lodz", experience="junior")
-
-    print(f"\nFound {len(found_links)} offers!")
-
-    for i, link in enumerate(found_links[:3]):#pierwsze 3
-        print(f"\n--- Offer {i + 1} ---")
-        dane = scraper.extract_job_data(link)
-        print(f"Link:  {dane['url']}")
-        print(f"Stack: {dane['tech_stack']}")

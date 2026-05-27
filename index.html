@@ -140,9 +140,21 @@
                     let stackHtml = "Brak danych";
                     if (offer.tech_stack && offer.tech_stack !== "Not found") {
                         const stackArray = offer.tech_stack.split(',');
-                        stackHtml = stackArray.map(tech =>
-                            `<span class="inline-block bg-gray-100 text-gray-700 border border-gray-200 text-xs px-2 py-1 rounded mr-1 mb-1 font-medium">${tech.trim()}</span>`
-                        ).join('');
+
+                        stackHtml = stackArray.map(tech => {
+                            const cleanTech = tech.trim();
+                            // Jeśli wgrano CV i technologia jest na liście brakujących, zrób czerwoną kapsułkę
+                            if (data.cv_analyzed && offer.missing_skills.includes(cleanTech)) {
+                                return `<span class="inline-block bg-red-50 text-red-700 border border-red-200 text-xs px-2 py-1 rounded mr-1 mb-1 font-medium" title="Brakuje w CV!">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i>${cleanTech}
+                                </span>`;
+                            } else {
+                                // W przeciwnym razie zwykła, szara (umiesz to!)
+                                return `<span class="inline-block bg-gray-100 text-gray-700 border border-gray-200 text-xs px-2 py-1 rounded mr-1 mb-1 font-medium">
+                                    <i class="fas fa-check text-green-500 mr-1" style="${data.cv_analyzed ? '' : 'display:none'}"></i>${cleanTech}
+                                </span>`;
+                            }
+                        }).join('');
                     }
 
                     card.innerHTML = `
