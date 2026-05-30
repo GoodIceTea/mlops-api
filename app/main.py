@@ -6,7 +6,7 @@ import shutil
 import os
 import time
 
-from app.scraper import JobScraper
+from app.jjit_scraper import JjitScraper
 from app.pracuj_scraper import PracujScraper
 from app.cv_analyzer import CV_Analyzer
 
@@ -24,8 +24,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-jjit_scraper = JobScraper()
-pracuj_scraper = PracujScraper()
+scrapers = [JjitScraper(), PracujScraper()]
 cv_analyzer = CV_Analyzer()
 search_cache = TTLCache(maxsize=100, ttl=300)
 
@@ -50,22 +49,12 @@ async def search_and_match_jobs(
     else:
         print("Searching for offers")
         scraped_offers = []
-
-        try:
-            jjit_links = jjit_scraper.find_job_links(category, location, experience)
-
-            for link in jjit_links:
-                scraped_offers.append(jjit_scraper.extract_job_data(link))
-                time.sleep(0.5)
-
-        except Exception as e:
-            print(f"Error scraping JJIT: {e}")
-
-        try:
-            pracuj_offers = pracuj_scraper.get_jobs(category, location, experience)
-            scraped_offers.extend(pracuj_offers)
-        except Exception as e:
-            print(f"Error scraping Pracuj.pl: {e}")
+        for scraper in scrapers:
+            try:
+                offers = scraper.get_jobs(category, location, experience)
+                scraped_offers.extend(offers)
+            except Exception as e:
+                print(f"Error in module {scraper.__class__.__name__}: {e}")
 
         if not scraped_offers:
             raise HTTPException(status_code=404, detail="No offers found")
